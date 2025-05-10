@@ -1,9 +1,12 @@
+# Importamos las librerias
 from configs.server import app
 import uvicorn
 import colorama
 
+# Inicializamos colorama
 colorama.init()
 
+# Iniciamos el servidor
 if __name__ == "__main__":
     portNumber = 8000
     print(colorama.Fore.BLUE + "   Tu server esta corriendo en el puerto: ", portNumber)
