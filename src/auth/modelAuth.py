@@ -5,10 +5,10 @@ class UserLogin(BaseModel):
     password: str
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str
+    accessToken: str
+    tokenType: str
 
 class TokenData(BaseModel):
     email: str | None = None
-    user_id: int | None = None
+    userId: int | None = None
     role: str | None = None

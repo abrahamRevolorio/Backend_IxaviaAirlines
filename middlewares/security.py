@@ -1,21 +1,19 @@
 from fastapi import Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-async def security_headers(request: Request, call_next) -> Response:
-    
-    response = await call_next(request)
-
+# Cabeceras de seguridad básicas
+async def securityHeaders(request: Request, callNext) -> Response:
+    response = await callNext(request)
     response.headers.update({
         "x-Frame-Options": "DENY",
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "geolocation=()"
     })
-
     return response
 
-def setup_cors(app):
-    #Llamamos al los metodos de seguridad
+# Permite llamadas desde cualquier origen (útil en desarrollo)
+def setupCors(app):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

@@ -1,11 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import declarative_base
 from passlib.context import CryptContext
 
 Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwdContext = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class User(Base):
     __tablename__ = "usuarios"
@@ -16,5 +14,5 @@ class User(Base):
     rol_id = Column(Integer)
     estado = Column(String(20), default=True)
 
-    def verify_password(self, plain_password: str):
-        return pwd_context.verify(plain_password, self.passwordhash)
+    def verifyPassword(self, plainPassword: str):
+        return pwdContext.verify(plainPassword, self.passwordhash)

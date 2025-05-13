@@ -1,61 +1,57 @@
-# Importamos las librerias
+# Importamos FastAPI y librerías necesarias
 from fastapi import FastAPI, Request, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 
-from middlewares.security import security_headers, setup_cors
+from middlewares.security import securityHeaders, setupCors
 from middlewares.limiter import limiter
-from configs.database import connect_db, close_db, get_db
+from configs.database import connectDb, closeDb, getDb
 
 from src.auth.modelAuth import UserLogin, Token, TokenData
 from src.auth.controllerAuth import AuthController
-from src.auth.dependencies import get_current_user, oauth2_scheme
+from src.auth.dependencies import getCurrentUser, oauth2Scheme
 
-# Funcion para manejar los estados de la base de datos
+# Función que se ejecuta cuando inicia o se apaga el server
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect_db()
+    await connectDb()
     yield
-    await close_db()
+    await closeDb()
 
-# Inicializamos FastAPI con la base de datos
+# Creamos la app de FastAPI
 app = FastAPI(lifespan=lifespan)
 
-# Agregamos los middlewares
-setup_cors(app)
-app.middleware("http")(security_headers)
-app.middleware("https")(security_headers)
+# Aplicamos middlewares para CORS y seguridad
+setupCors(app)
+app.middleware("http")(securityHeaders)
+app.middleware("https")(securityHeaders)
 app.state.limiter = limiter
 
-# Peticion ruta raiz
+# Ruta raíz para verificar que el server funciona
 @app.get("/")
 @limiter.limit("5/minute")
 async def home(request: Request):
-    return {"message": "Funciona El Server Wey!"}
+    return {"message": "Funciona el server wey!"}
 
-# Peticion para probar la base de datos
+# Ruta para probar conexión a la base de datos
 @app.get("/test-db")
-async def test_db(db: AsyncSession = Depends(get_db)):
+async def testDb(db: AsyncSession = Depends(getDb)):
     result = await db.execute(text("SELECT version()"))
     version = result.scalar()
-    return {"postgres_version": version}
+    return {"postgresVersion": version}
 
+# Ruta de login que devuelve un token si todo va bien
 @app.post("/auth/login", response_model=Token)
-async def login(
-    user_data: UserLogin,
-    db: AsyncSession = Depends(get_db)
-):
-    return await AuthController.login(db, user_data)
+async def login(userData: UserLogin, db: AsyncSession = Depends(getDb)):
+    return await AuthController.login(db, userData)
 
+# Ruta de logout, simplemente devuelve un mensaje
 @app.post("/auth/logout")
-async def logout(
-    current_user: TokenData = Depends(get_current_user)
-):
+async def logout(currentUser: TokenData = Depends(getCurrentUser)):
     return await AuthController.logout()
 
+# Ruta para obtener datos del usuario logueado
 @app.get("/auth/me")
-async def read_users_me(
-    current_user: TokenData = Depends(get_current_user)
-):
-    return current_user
+async def readUser(currentUser: TokenData = Depends(getCurrentUser)):
+    return currentUser

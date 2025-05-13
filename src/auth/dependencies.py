@@ -4,29 +4,29 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .modelAuth import TokenData
-from configs.database import get_db
+from configs.database import getDb
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+SECRET_KEY = "3sUnaC1aveSup3erS3cret2"
+ALGORITHM = "HS256"
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-):
-    credentials_exception = HTTPException(
+oauth2Scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+async def getCurrentUser(token: str = Depends(oauth2Scheme), db: AsyncSession = Depends(getDb)):
+    credentialsException = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
-        user_id: int = payload.get("user_id")
+        userId: int = payload.get("userId")
         role: str = payload.get("rol")
-        
-        if email is None or user_id is None:
-            raise credentials_exception
-        
-        return TokenData(email=email, user_id=user_id, role=role)
+
+        if email is None or userId is None:
+            raise credentialsException
+
+        return TokenData(email=email, userId=userId, role=role)
     except JWTError:
-        raise credentials_exception
+        raise credentialsException
