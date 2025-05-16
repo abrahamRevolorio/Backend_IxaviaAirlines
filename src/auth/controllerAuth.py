@@ -40,10 +40,17 @@ class AuthController:
 
         accessTokenExpires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
+        if user.rol_id == 1:
+            rolActual = "Administrador"
+        elif user.rol_id == 2:
+            rolActual = "Cliente"
+        elif user.rol_id == 3:
+            rolActual = "Agente"
+
         tokenPayload = {
             "sub": user.email,
             "userId": user.usuarioid,
-            "rol": "admin" if user.rol_id == 1 else "user"
+            "rol": rolActual
         }
 
         return {
