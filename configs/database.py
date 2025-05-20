@@ -24,7 +24,8 @@ engine = create_async_engine(
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False
+    expire_on_commit=False,
+    autoflush=False
 )
 
 # Evento que se lanza al conectarse
