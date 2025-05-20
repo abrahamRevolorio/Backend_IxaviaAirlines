@@ -105,7 +105,7 @@ class AuthController:
                 "dpi": dataUser.dpi,
                 "telefono": dataUser.telefono,
                 "direccion": dataUser.direccion,
-                "fechadenacimiento": dataUser.fechadenacimiento,
+                "fechadenacimiento": dataUser.fechadenacimiento.isoformat(),
                 "nacionalidad": dataUser.nacionalidad,
                 "edad": dataUser.edad,
                 "telefonoemergencia": dataUser.telefonoemergencia
