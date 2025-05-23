@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request, Depends, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
+from pydantic import ValidationError
 
 from middlewares.security import securityHeaders, setupCors
 from middlewares.limiter import limiter
@@ -11,6 +12,9 @@ from configs.database import connectDb, closeDb, getDb
 from src.auth.modelAuth import UserLogin, Token, TokenData, UserRegister, RegisterResponse
 from src.auth.controllerAuth import AuthController
 from src.auth.dependencies import getCurrentUser, oauth2Scheme
+from src.users.controllerUser import UserController
+from src.users.modelUser import ClientRegister
+from src.users.modelUser import EmployerRegister
 
 # Función que se ejecuta cuando inicia o se apaga el server
 @asynccontextmanager
@@ -74,3 +78,45 @@ async def registerUser(
     db: AsyncSession = Depends(getDb)
 ) -> RegisterResponse:
     return await AuthController.registerClient(db, userData)
+
+@app.post(
+    "/user/add",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses = {
+        status.HTTP_201_CREATED: {"description": "Registro exitoso"},
+        status.HTTP_400_BAD_REQUEST: {"description": "Error de validación o email existente"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Registra un nuevo usuario",
+    tags=["Users"]
+)
+async def registerUser(
+    request: Request,
+    db: AsyncSession = Depends(getDb),
+    current_user: TokenData = Depends(getCurrentUser)
+) -> RegisterResponse:
+    try:
+        data = await request.json()
+        rol = data.get("rol")
+
+        if rol not in ["Cliente", "Agente", "Administrador"]:
+            return RegisterResponse(success=False, message="Rol no válido")
+
+        if current_user.role not in ["Administrador", "Agente"]:
+            return RegisterResponse(success=False, message="No tienes permiso para realizar esta acción")
+
+        if current_user.role != "Administrador" and rol != "Cliente":
+            return RegisterResponse(success=False, message="No puedes agregar un administrador o agente")
+
+        if rol == "Cliente":
+            userData = ClientRegister(**data)
+            return await UserController.registerClient(db, userData)
+        else:
+            userData = EmployerRegister(**data)
+            return await UserController.registerEmployer(db, userData)
+
+    except ValidationError as e:
+        return RegisterResponse(success=False, message=f"Datos inválidos: {e.errors()}")
+    except Exception as e:
+        return RegisterResponse(success=False, message=f"Error interno: {str(e)}")
