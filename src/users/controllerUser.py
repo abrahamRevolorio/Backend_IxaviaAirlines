@@ -3,10 +3,10 @@ from datetime import datetime, timedelta, date
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import text
+from sqlalchemy import text, update
 from passlib.hash import bcrypt
 
-from .modelUser import ClientRegister, EmployerRegister, RegisterResponse
+from .modelUser import ClientRegister, EmployerRegister, RegisterResponse, FindUser, DeleteUser
 from .shemas import User, Cliente, Empleado
 
 class UserController:
@@ -187,4 +187,197 @@ class UserController:
                 success=False,
                 message="Error al registrar el usuario",
                 status_code=5000
+            )
+        
+    @staticmethod
+    async def viewUsers(db: AsyncSession):
+        try:
+            usersResult = await db.execute(select(User).order_by(User.email))
+            users = usersResult.scalars().all()
+
+            clientes = []
+            empleados = []
+
+            for user in users:
+                clientResult = await db.execute(select(Cliente).where(Cliente.usuario_id == user.usuarioid))
+                client = clientResult.scalar_one_or_none()
+
+                if client:
+                    clientes.append({
+                        "user": {
+                            "email": user.email,
+                            "estado": user.estado,
+                            "rol_id": user.rol_id,
+                            "usuario_id": user.usuarioid
+                        },
+                        "cliente": {
+                            "nombre": client.nombre,
+                            "apellido": client.apellido,
+                            "dpi": client.dpi,
+                            "telefono": client.telefono,
+                            "direccion": client.direccion,
+                            "nacionalidad": client.nacionalidad,
+                            "edad": client.edad,
+                            "telefono_emergencia": client.telefonoemergencia
+                        }
+                    })
+                    continue
+
+                empResult = await db.execute(select(Empleado).where(Empleado.usuario_id == user.usuarioid))
+                emp = empResult.scalar_one_or_none()
+
+                if emp:
+                    empleados.append({
+                        "user": {
+                            "email": user.email,
+                            "estado": user.estado,
+                            "rol_id": user.rol_id,
+                            "usuario_id": user.usuarioid
+                        },
+                        "empleado": {
+                            "nombre": emp.nombre,
+                            "apellido": emp.apellido,
+                            "dpi": emp.dpi,
+                            "telefono": emp.telefono,
+                            "edad": emp.edad,
+                            "nit": emp.nit
+                        }
+                    })
+
+            return {
+                "clientes": clientes,
+                "empleados": empleados
+            }
+
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return RegisterResponse(
+                success=False,
+                message="Error interno del servidor",
+                status_code=500
+            )
+        
+    @staticmethod
+    async def findUser(db: AsyncSession, userData: FindUser) -> RegisterResponse:
+        try:
+            findClientResult = await db.execute(select(Cliente).where(Cliente.dpi == userData.dpi))
+            client = findClientResult.scalars().first()
+
+            if client:
+                userResult = await db.execute(select(User).where(User.usuarioid == client.usuario_id))
+                user = userResult.scalars().first()
+
+                return RegisterResponse(
+                    success=True,
+                    message="Usuario encontrado",
+                    user_info={
+                        "email": user.email,
+                        "password": user.passwordhash,
+                        "dpi": client.dpi,
+                        "nombres": client.nombre,
+                        "apellidos": client.apellido,
+                        "telefono": client.telefono,
+                        "direccion": client.direccion,
+                        "fechadenacimiento": client.fechadenacimiento.isoformat(),
+                        "nacionalidad": client.nacionalidad,
+                        "edad": str(client.edad),
+                        "telefonoemergencia": client.telefonoemergencia,
+                        "rol": "Cliente"
+                    },
+                    status_code=200
+                )
+
+            findEmployerResult = await db.execute(select(Empleado).where(Empleado.dpi == userData.dpi))
+            employer = findEmployerResult.scalars().first()
+
+            if employer:
+                userResult = await db.execute(select(User).where(User.usuarioid == employer.usuario_id))
+                user = userResult.scalars().first()
+
+                if user.rol_id == 1:
+                    role = "Administrador"
+                elif user.rol_id == 3:
+                    role = "Agente"
+
+                return RegisterResponse(
+                    success=True,
+                    message="Usuario encontrado",
+                    user_info={
+                        "email": user.email,
+                        "password": user.passwordhash,
+                        "dpi": employer.dpi,
+                        "nombres": employer.nombre,
+                        "apellidos": employer.apellido,
+                        "telefono": employer.telefono,
+                        "edad": str(employer.edad),
+                        "nit": employer.nit,
+                        "rol": role
+                    },
+                    status_code=200
+                )
+            
+            return RegisterResponse(
+                success=False,
+                message="No se encontró el usuario",
+                status_code=404
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return RegisterResponse(
+                success=False,
+                message="Error interno del servidor",
+                status_code=500
+            )
+        
+    @staticmethod
+    async def deleteUser(db: AsyncSession, userData: DeleteUser) -> RegisterResponse:
+
+        try:
+            
+            findClientResult = await db.execute(select(Cliente).where(Cliente.dpi == userData.dpi))
+            client = findClientResult.scalars().first()
+
+            if client:
+
+                userResult = await db.execute(update(User).where(User.usuarioid == client.usuario_id).values(estado="inactivo"))
+
+                await db.commit()
+                
+                return RegisterResponse(
+                    success=True,
+                    message="Usuario desactivado",
+                    status_code=200
+                )
+
+            findEmployerResult = await db.execute(select(Empleado).where(Empleado.dpi == userData.dpi))
+            employer = findEmployerResult.scalars().first()
+
+            if employer:
+
+                userResult = await db.execute(update(User).where(User.usuarioid == employer.usuario_id).values(estado="inactivo"))
+
+                await db.commit()
+                
+                return RegisterResponse(
+                    success=True,
+                    message="Usuario desactivado",
+                    status_code=200
+                )    
+            
+            return RegisterResponse(
+                success=False,
+                message="No se encontró el usuario",
+                status_code=404
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return RegisterResponse(
+                success=False,
+                message="Error interno del servidor",
+                status_code=500
             )

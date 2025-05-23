@@ -76,3 +76,23 @@ class RegisterResponse(BaseModel):
                 "status_code": 201
             }
         }
+
+class FindUser(BaseModel):
+    dpi: str = Field(..., min_length=13, max_length=13)
+
+    @field_validator("dpi")
+    @classmethod
+    def validateDpi(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("El DPI debe ser un numero")
+        return v
+    
+class DeleteUser(BaseModel):
+    dpi: str = Field(..., min_length=13, max_length=13)
+
+    @field_validator("dpi")
+    @classmethod
+    def validateDpi(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("El DPI debe ser un numero")
+        return v

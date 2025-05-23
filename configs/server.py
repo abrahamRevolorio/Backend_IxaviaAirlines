@@ -13,8 +13,7 @@ from src.auth.modelAuth import UserLogin, Token, TokenData, UserRegister, Regist
 from src.auth.controllerAuth import AuthController
 from src.auth.dependencies import getCurrentUser, oauth2Scheme
 from src.users.controllerUser import UserController
-from src.users.modelUser import ClientRegister
-from src.users.modelUser import EmployerRegister
+from src.users.modelUser import ClientRegister, EmployerRegister, FindUser, DeleteUser
 
 # Función que se ejecuta cuando inicia o se apaga el server
 @asynccontextmanager
@@ -120,3 +119,53 @@ async def registerUser(
         return RegisterResponse(success=False, message=f"Datos inválidos: {e.errors()}")
     except Exception as e:
         return RegisterResponse(success=False, message=f"Error interno: {str(e)}")
+    
+@app.get(
+    "/user/view",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los usuarios",
+    tags=["Users"]
+)
+async def viewUsers(db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)):
+    if current_user.role == "Administrador" or current_user.role == "Agente":
+        return await UserController.viewUsers(db)
+    else:
+        return {"success": False,
+                "message": "No tienes permiso para esta acción"
+                }
+    
+@app.get(
+    "/user/find",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los usuarios",
+    tags=["Users"]
+)
+async def viewUsers(userData: FindUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
+    if current_user.role == "Administrador" or current_user.role == "Agente":
+        return await UserController.findUser(db, userData)
+    else:
+        return RegisterResponse(success=False, message="No tienes permiso para esta acción")
+
+@app.delete(
+    "/user/delete",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los usuarios",
+    tags=["Users"]
+)
+async def deleteUser(userData: DeleteUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
+    if current_user.role == "Administrador":
+        return await UserController.deleteUser(db, userData)
+    else:
+        return RegisterResponse(success=False, message="No tienes permiso para esta acción")

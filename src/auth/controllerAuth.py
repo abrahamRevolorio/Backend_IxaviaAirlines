@@ -27,13 +27,16 @@ class AuthController:
     async def authenticateUser(db: AsyncSession, email: str, password: str):
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
+        
         if not user or not user.verifyPassword(password):
             return None
+        
         return user
 
     @staticmethod
     async def login(db: AsyncSession, userData):
         user = await AuthController.authenticateUser(db, userData.email, userData.password)
+        
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,10 +44,17 @@ class AuthController:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if user.estado.lower() == "inactivo":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario desactivado. Contacte al administrador.",
+            )
+
         accessTokenExpires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-        if user.rol_id == 1:
-            rolActual = "Administrador"
+        if user.rol_id == 1 or user.rol_id == 3:
+            rolActual = "Administrador" if user.rol_id == 1 else "Agente"
+            
             query_str = text("""
                 SELECT 
                     e.*, 
@@ -75,8 +85,10 @@ class AuthController:
                 "telefono": dataUser.telefono,
                 "edad": dataUser.edad
             }
+
         elif user.rol_id == 2:
             rolActual = "Cliente"
+            
             query_str = text("""
                 SELECT 
                     c.*, 
@@ -109,39 +121,6 @@ class AuthController:
                 "nacionalidad": dataUser.nacionalidad,
                 "edad": dataUser.edad,
                 "telefonoemergencia": dataUser.telefonoemergencia
-            }
-
-        elif user.rol_id == 3:
-            rolActual = "Agente"
-            query_str = text("""
-                SELECT 
-                    e.*, 
-                    u.email, 
-                    u.fecharegistro, 
-                    u.estado AS estado_usuario,
-                    r.nombrerol
-                FROM 
-                    empleados e
-                JOIN 
-                    usuarios u ON e.usuario_id = u.usuarioid
-                JOIN
-                    roles r ON u.rol_id = r.rolid
-                WHERE 
-                    u.email = :email
-            """)
-            result = await db.execute(query_str, {"email": userData.email})
-            dataUser = result.mappings().first()
-
-            tokenPayload = {
-                "sub": user.email,
-                "userId": user.usuarioid,
-                "rol": rolActual,
-                "nombre": dataUser.nombre,
-                "apellido": dataUser.apellido,
-                "dpi": dataUser.dpi,
-                "nit": dataUser.nit,
-                "telefono": dataUser.telefono,
-                "edad": dataUser.edad
             }
 
         return {
