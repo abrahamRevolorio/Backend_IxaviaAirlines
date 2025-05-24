@@ -1,65 +1,75 @@
-# Importamos FastAPI y librerías necesarias
+# Importamos FastAPI y todas las librerías que vamos a usar
 from fastapi import FastAPI, Request, Depends, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 
+# Middlewares personalizados para seguridad, CORS y límite de peticiones
 from middlewares.security import securityHeaders, setupCors
 from middlewares.limiter import limiter
+
+# Conexión a la base de datos
 from configs.database import connectDb, closeDb, getDb
 
+# Modelos y controladores de autenticación
 from src.auth.modelAuth import UserLogin, Token, TokenData, UserRegister, RegisterResponse
 from src.auth.controllerAuth import AuthController
 from src.auth.dependencies import getCurrentUser, oauth2Scheme
-from src.users.controllerUser import UserController
-from src.users.modelUser import ClientRegister, EmployerRegister, FindUser, DeleteUser
 
-# Función que se ejecuta cuando inicia o se apaga el server
+# Modelos y controladores de usuarios
+from src.users.controllerUser import UserController
+from src.users.modelUser import ClientRegister, EmployerRegister, FindUser, DeleteUser, UpdateUser
+
+# Esto se ejecuta cuando el servidor se prende o se apaga
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connectDb()
+    await connectDb()  # Conectamos a la base de datos
     yield
-    await closeDb()
+    await closeDb()  # Cerramos la conexión cuando el servidor se apague
 
-# Creamos la app de FastAPI
+# Inicializamos la app de FastAPI
 app = FastAPI(lifespan=lifespan)
 
-# Aplicamos middlewares para CORS y seguridad
+# Configuramos los middlewares de CORS y seguridad
 setupCors(app)
 app.middleware("http")(securityHeaders)
 app.middleware("https")(securityHeaders)
-app.state.limiter = limiter
+app.state.limiter = limiter  # Limite de peticiones por IP
 
-# Ruta raíz para verificar que el server funciona
+# Ruta base para comprobar que el servidor está vivo
 @app.get("/")
-@limiter.limit("5/minute")
+@limiter.limit("50/minute")
 async def home(request: Request):
     return {"message": "Funciona el server wey!"}
 
-# Ruta para probar conexión a la base de datos
+# Ruta para probar si la conexión con la base de datos está bien
 @app.get("/test-db")
-async def testDb(db: AsyncSession = Depends(getDb)):
+@limiter.limit("50/minute")
+async def testDb(request: Request, db: AsyncSession = Depends(getDb)):
     result = await db.execute(text("SELECT version()"))
     version = result.scalar()
     return {"postgresVersion": version}
 
-# Ruta de login que devuelve un token si todo va bien
+# Login de usuario, si todo va bien devuelve el token
 @app.post("/auth/login", response_model=Token)
-async def login(userData: UserLogin, db: AsyncSession = Depends(getDb)):
+@limiter.limit("50/minute")
+async def login(request: Request, userData: UserLogin, db: AsyncSession = Depends(getDb)):
     return await AuthController.login(db, userData)
 
-# Ruta de logout, simplemente devuelve un mensaje
+# Logout, no hace mucho más que responder con un mensaje
 @app.post("/auth/logout")
-async def logout(currentUser: TokenData = Depends(getCurrentUser)):
+@limiter.limit("50/minute")
+async def logout(request: Request, currentUser: TokenData = Depends(getCurrentUser)):
     return await AuthController.logout()
 
-# Ruta para obtener datos del usuario logueado
+# Devuelve los datos del usuario que hizo login (según el token)
 @app.get("/auth/me")
-async def readUser(currentUser: TokenData = Depends(getCurrentUser)):
+@limiter.limit("50/minute")
+async def readUser(request: Request, currentUser: TokenData = Depends(getCurrentUser)):
     return currentUser
 
-# Ruta para registrar un nuevo usuario
+# Ruta pública para registrar un nuevo usuario tipo cliente
 @app.post(
     "/auth/register", 
     response_model=RegisterResponse,
@@ -72,12 +82,15 @@ async def readUser(currentUser: TokenData = Depends(getCurrentUser)):
     summary="Registra un nuevo usuario",
     tags=["Auth"]
 )
+@limiter.limit("50/minute")
 async def registerUser(
+    request: Request,
     userData: UserRegister,
     db: AsyncSession = Depends(getDb)
 ) -> RegisterResponse:
     return await AuthController.registerClient(db, userData)
 
+# Ruta para que agentes o administradores agreguen nuevos usuarios
 @app.post(
     "/user/add",
     response_model=RegisterResponse,
@@ -90,6 +103,7 @@ async def registerUser(
     summary="Registra un nuevo usuario",
     tags=["Users"]
 )
+@limiter.limit("50/minute")
 async def registerUser(
     request: Request,
     db: AsyncSession = Depends(getDb),
@@ -99,15 +113,19 @@ async def registerUser(
         data = await request.json()
         rol = data.get("rol")
 
+        # Validamos si el rol existe
         if rol not in ["Cliente", "Agente", "Administrador"]:
             return RegisterResponse(success=False, message="Rol no válido")
 
+        # Solo agentes y administradores pueden registrar
         if current_user.role not in ["Administrador", "Agente"]:
             return RegisterResponse(success=False, message="No tienes permiso para realizar esta acción")
 
+        # Un agente no puede registrar a otro agente o admin
         if current_user.role != "Administrador" and rol != "Cliente":
             return RegisterResponse(success=False, message="No puedes agregar un administrador o agente")
 
+        # Según el rol, usamos un modelo u otro
         if rol == "Cliente":
             userData = ClientRegister(**data)
             return await UserController.registerClient(db, userData)
@@ -120,6 +138,7 @@ async def registerUser(
     except Exception as e:
         return RegisterResponse(success=False, message=f"Error interno: {str(e)}")
     
+# Ruta para que admin o agentes puedan ver todos los usuarios
 @app.get(
     "/user/view",
     status_code=status.HTTP_200_OK,
@@ -130,14 +149,14 @@ async def registerUser(
     summary="Obtiene todos los usuarios",
     tags=["Users"]
 )
-async def viewUsers(db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)):
+@limiter.limit("50/minute")
+async def viewUsers(request: Request, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)):
     if current_user.role == "Administrador" or current_user.role == "Agente":
         return await UserController.viewUsers(db)
     else:
-        return {"success": False,
-                "message": "No tienes permiso para esta acción"
-                }
-    
+        return {"success": False, "message": "No tienes permiso para esta acción"}
+
+# Ruta para buscar un usuario específico
 @app.get(
     "/user/find",
     status_code=status.HTTP_200_OK,
@@ -145,15 +164,17 @@ async def viewUsers(db: AsyncSession = Depends(getDb), current_user: TokenData =
         status.HTTP_200_OK: {"description": "Consulta exitosa"},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
     },
-    summary="Obtiene todos los usuarios",
+    summary="Busca un usuario",
     tags=["Users"]
 )
-async def viewUsers(userData: FindUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
+@limiter.limit("50/minute")
+async def viewUsers(request: Request, userData: FindUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
     if current_user.role == "Administrador" or current_user.role == "Agente":
         return await UserController.findUser(db, userData)
     else:
         return RegisterResponse(success=False, message="No tienes permiso para esta acción")
 
+# Ruta para eliminar un usuario (solo admins)
 @app.delete(
     "/user/delete",
     status_code=status.HTTP_200_OK,
@@ -161,11 +182,29 @@ async def viewUsers(userData: FindUser, db: AsyncSession = Depends(getDb), curre
         status.HTTP_200_OK: {"description": "Consulta exitosa"},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
     },
-    summary="Obtiene todos los usuarios",
+    summary="Elimina un usuario",
     tags=["Users"]
 )
-async def deleteUser(userData: DeleteUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
+@limiter.limit("50/minute")
+async def deleteUser(request: Request, userData: DeleteUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
     if current_user.role == "Administrador":
         return await UserController.deleteUser(db, userData)
+    else:
+        return RegisterResponse(success=False, message="No tienes permiso para esta acción")
+
+@app.put(
+    "/user/update",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Actualizar usuario",
+    tags=["Users"]
+)
+@limiter.limit("50/minute")
+async def updateUser(request: Request, userData: UpdateUser, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RegisterResponse:
+    if current_user.role == "Administrador" or current_user.role == "Agente":
+        return await UserController.editUser(db, userData, current_user=current_user)
     else:
         return RegisterResponse(success=False, message="No tienes permiso para esta acción")

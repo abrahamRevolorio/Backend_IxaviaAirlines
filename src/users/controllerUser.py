@@ -6,8 +6,10 @@ from sqlalchemy.future import select
 from sqlalchemy import text, update
 from passlib.hash import bcrypt
 
-from .modelUser import ClientRegister, EmployerRegister, RegisterResponse, FindUser, DeleteUser
+from .modelUser import ClientRegister, EmployerRegister, RegisterResponse, FindUser, DeleteUser, UpdateUser
 from .shemas import User, Cliente, Empleado
+
+from src.auth.modelAuth import TokenData
 
 class UserController:
 
@@ -367,6 +369,116 @@ class UserController:
                     status_code=200
                 )    
             
+            return RegisterResponse(
+                success=False,
+                message="No se encontró el usuario",
+                status_code=404
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return RegisterResponse(
+                success=False,
+                message="Error interno del servidor",
+                status_code=500
+            )
+        
+    @staticmethod
+    async def editUser(db: AsyncSession, userData: UpdateUser, current_user: TokenData) -> RegisterResponse:
+        try:
+            findClientResult = await db.execute(select(Cliente).where(Cliente.dpi == userData.dpi))
+            client = findClientResult.scalars().first()
+
+            if client:
+
+                updates = {}
+
+                fieldsMapping = {
+                    'nombre': 'nombre',
+                    'apellido': 'apellido',
+                    'telefono': 'telefono',
+                    'direccion': 'direccion',
+                    'nacionalidad': 'nacionalidad',
+                    'telefonoEmergencia': 'telefonoemergencia',
+                }
+
+                for field, db_field in fieldsMapping.items():
+                    value = getattr(userData, field, None)
+                    if value is not None:
+                        updates[db_field] = value
+
+                if userData.nacimiento is not None:
+                    updates['fechadenacimiento'] = userData.nacimiento
+                    today = date.today()
+                    age = today.year - userData.nacimiento.year - (
+                    (today.month, today.day) < (userData.nacimiento.month, userData.nacimiento.day))
+                    updates['edad'] = age
+                
+                if updates:
+                    await db.execute(
+                        update(Cliente)
+                        .where(Cliente.dpi == userData.dpi)
+                        .values(**updates)
+                    )
+
+                    await db.commit()
+
+                    return RegisterResponse(
+                        success=True,
+                        message="Usuario actualizado",
+                        status_code=200
+                    )
+                
+                else:
+                    return RegisterResponse(
+                        success=False,
+                        message="No pudo actualizarse el usuario",
+                        status_code=404
+                    )
+            
+            findEmployerResult = await db.execute(select(Empleado).where(Empleado.dpi == userData.dpi))
+            employer = findEmployerResult.scalars().first()
+
+            if employer:
+
+                if current_user.role == "Agente":
+                    return RegisterResponse(
+                        success=False,
+                        message="No tienes permiso para estaacción",
+                        status_code=403
+                    )
+
+                updates = {}
+
+                fieldsMapping = {
+                    'nombre': 'nombre',
+                    'apellido': 'apellido',
+                    'telefono': 'telefono',
+                    'edad': str('edad'),
+                    'nit': 'nit',
+                }
+
+                for field, db_field in fieldsMapping.items():
+                    value = getattr(userData, field, None)
+                    if value is not None:
+                        updates[db_field] = value
+
+                if updates:
+                    await db.execute(
+                        update(Empleado)
+                        .where(Empleado.dpi == userData.dpi)
+                        .values(**updates)
+                    )
+
+                    await db.commit()
+
+                    return RegisterResponse(
+                        success=True,
+                        message="Usuario actualizado",
+                        status_code=200
+                    )
+
             return RegisterResponse(
                 success=False,
                 message="No se encontró el usuario",

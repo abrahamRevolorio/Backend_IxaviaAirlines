@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import date
-from typing import Dict
+from typing import Dict, Optional
 
 class EmployerRegister(BaseModel):
 
@@ -96,3 +96,18 @@ class DeleteUser(BaseModel):
         if not v.isdigit():
             raise ValueError("El DPI debe ser un numero")
         return v
+    
+class UpdateUser(BaseModel):
+
+    dpi: str
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    nacimiento: Optional[date] = None
+    nacionalidad: Optional[str] = None
+    telefonoEmergencia: Optional[str] = None
+    nit: Optional[str] = None
+    edad: Optional[int] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
