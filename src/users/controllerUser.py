@@ -1,6 +1,4 @@
-from jose import jwt
-from datetime import datetime, timedelta, date
-from fastapi import HTTPException, status
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text, update

@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import declarative_base
-from passlib.context import CryptContext
-from passlib.hash import bcrypt
 
 Base = declarative_base()
 
