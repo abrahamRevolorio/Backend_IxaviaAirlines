@@ -21,6 +21,9 @@ from src.auth.dependencies import getCurrentUser, oauth2Scheme
 from src.users.controllerUser import UserController
 from src.users.modelUser import ClientRegister, EmployerRegister, FindUser, DeleteUser, UpdateUser
 
+from src.roles.controllerRole import RoleController
+from src.roles.modelRole import RoleModel, RoleResponse, UpdateRole, DeleteRole
+
 # Esto se ejecuta cuando el servidor se prende o se apaga
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -208,3 +211,71 @@ async def updateUser(request: Request, userData: UpdateUser, db: AsyncSession = 
         return await UserController.editUser(db, userData, current_user=current_user)
     else:
         return RegisterResponse(success=False, message="No tienes permiso para esta acción")
+    
+@app.post(
+    "/role/add",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Agregar rol",
+    tags=["Users"]
+)
+@limiter.limit("50/minute")
+async def addRole(request: Request, userData: RoleModel, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RoleResponse:
+    if current_user.role == "Administrador":
+        return await RoleController.addRole(db, userData)
+    else:
+        return RoleResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.get(
+    "/role/view",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los roles",
+    tags=["Users"]
+)
+@limiter.limit("50/minute")
+async def viewRoles(request: Request, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RoleResponse:
+    if current_user.role == "Administrador":
+        return await RoleController.showRoles(db)
+    else:
+        return RoleResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.put(
+    "/role/update",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Actualizar rol",
+    tags=["Users"]
+)
+@limiter.limit("50/minute")
+async def updateRole(request: Request, userData: UpdateRole, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RoleResponse:
+    if current_user.role == "Administrador":
+        return await RoleController.editRoles(db, userData)
+    else:
+        return RoleResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.delete(
+    "/role/delete",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Eliminar rol",
+    tags=["Users"]
+)
+@limiter.limit("50/minute")
+async def deleteRole(request: Request, userData: DeleteRole, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> RoleResponse:
+    if current_user.role == "Administrador":
+        return await RoleController.deleteRoles(db, userData)
+    else:
+        return RoleResponse(success=False, message="No tienes permiso para estaacción")
