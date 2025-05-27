@@ -46,6 +46,10 @@ app.state.limiter = limiter  # Limite de peticiones por IP
 async def home(request: Request):
     return {"message": "Funciona el server wey!"}
 
+@app.get("/ping")
+async def ping():
+    return {"message": "pong"}
+
 # Ruta para probar si la conexión con la base de datos está bien
 @app.get("/test-db")
 @limiter.limit("50/minute")
