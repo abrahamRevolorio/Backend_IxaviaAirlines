@@ -10,7 +10,7 @@ class EmployerRegister(BaseModel):
     nombres: str = Field(..., min_length=2, max_length=100)
     apellidos: str = Field(..., min_length=2, max_length=100)
     dpi: str = Field(..., min_length=13, max_length=13)
-    nit : str = Field(..., min_length=13, max_length=13)
+    nit : str
     telefono: str = Field(..., min_length=8, max_length=8)
     edad: int
     rol: str = Field(..., min_length=2, max_length=100)
