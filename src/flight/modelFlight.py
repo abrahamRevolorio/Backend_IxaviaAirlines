@@ -73,6 +73,7 @@ class FlightResponseList(BaseModel):
         }
 
 class FlightUpdate(BaseModel):
+    vueloid: int
     fecha: Optional[date] = None
     hora_salida: Optional[str] = None
     hora_llegada: Optional[str] = None
@@ -91,3 +92,6 @@ class FlightUpdate(BaseModel):
             return v
         except ValueError:
             raise ValueError("Formato de hora inválido. Use HH:MM:SS")
+        
+class FlightDelete(BaseModel):
+    vueloid: int

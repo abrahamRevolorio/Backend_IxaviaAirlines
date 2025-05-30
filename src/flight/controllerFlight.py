@@ -5,7 +5,7 @@ from sqlalchemy import text, update
 from datetime import datetime
 import json
 
-from .modelFlight import FlightCreate, FlightResponse, FlightUpdate, FlightResponseList
+from .modelFlight import FlightCreate, FlightResponse, FlightUpdate, FlightResponseList, FlightDelete
 from .schemas import Flight
 
 from src.auth.modelAuth import TokenData
@@ -100,6 +100,7 @@ class FlightController:
                 status_code=500
             )
         
+        
     @staticmethod
     async def viewFlightsToPeten(db: AsyncSession) -> FlightResponseList:
         try:
@@ -163,5 +164,109 @@ class FlightController:
             return FlightResponseList(
                 success=False,
                 message=f'Error interno del servidor',
+                status_code=500
+            )
+        
+    @staticmethod
+    async def updateFlight(db: AsyncSession, userData: FlightUpdate) -> FlightResponse:
+        try:
+
+            existingFlight = await db.execute(select(Flight).where(Flight.vueloid == userData.vueloid))
+
+            flight = existingFlight.scalars().first()
+
+            if not flight:
+
+                return FlightResponse(
+                    success=False,
+                    message=f'El vuelo con el id {userData.vueloid} no existe',
+                    status_code=400
+                )
+            
+            else:
+
+                updates = {}
+
+                fieldsMapping = {
+
+                    'fecha': 'fecha',
+                    'hora_salida': 'horasalida',
+                    'hora_llegada': 'horallegada',
+                    'destino_id': 'destino_id',
+                    'avion_id': 'avion_id'
+
+                }
+
+                for field, db_field in fieldsMapping.items():
+                    value = getattr(userData, field, None)
+                    if value is not None:
+
+                        if field == 'hora_salida' or field == 'hora_llegada':
+                            value = datetime.strptime(value, "%H:%M:%S").time()
+
+                        updates[db_field] = value
+
+                if updates:
+
+                    await db.execute(update(Flight).where(Flight.vueloid == userData.vueloid).values(**updates))
+                    await db.commit()
+            
+
+                    return FlightResponse(
+                        success=True,
+                        message=f'El vuelo  se ha actualizado correctamente',
+                        status_code=200
+                    )
+                
+                else:
+
+                    return FlightResponse(
+                        success=False,
+                        message=f'No se proporcionaron campos para actualizar',
+                        status_code=400
+                    )
+
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return FlightResponse(
+                success=False,
+                message="Error interno del servidor",
+                status_code=500
+            )
+        
+    @staticmethod
+    async def deleteFlight(db: AsyncSession, userData: FlightDelete) -> FlightResponse:
+        try:
+
+            existingFlight = await db.execute(select(Flight).where(Flight.vueloid == userData.vueloid))
+
+            flight = existingFlight.scalars().first()
+
+            if not flight:
+
+                return FlightResponse(
+                    success=False,
+                    message=f'El vuelo con el id {userData.vueloid} no existe',
+                    status_code=400
+                )
+            
+            else:
+
+                await db.execute(update (Flight).where(Flight.vueloid == userData.vueloid).values(estado='inactivo'))
+                await db.commit()
+
+                return FlightResponse(
+                    success=True,
+                    message=f'El vuelo se ha eliminado correctamente',
+                    status_code=200
+                )
+    
+        except Exception as e:
+            await db.rollback()
+            print(f"Error completo: {repr(e)}")
+            return FlightResponse(
+                success=False,
+                message="Error interno del servidor",
                 status_code=500
             )
