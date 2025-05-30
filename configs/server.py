@@ -29,6 +29,9 @@ from src.roles.modelRole import RoleModel, RoleResponse, UpdateRole, DeleteRole
 from src.flight.controllerFlight import FlightController
 from src.flight.modelFlight import FlightCreate, FlightResponse, FlightResponseList, FlightUpdate, FlightDelete
 
+from src.reservation.controllerReservation import ReservationController
+from src.reservation.modelReservation import ReservationCreate, ReservationResponse, ReservationResponseList
+
 # Esto se ejecuta cuando el servidor se prende o se apaga
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -381,3 +384,20 @@ async def deleteFlight(request: Request, userData: FlightDelete, db: AsyncSessio
         return await FlightController.deleteFlight(db, userData)
     else:
         return FlightResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.post(
+    "/reservation/create/client",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Reservar vuelo",
+    tags=["Reservations"]
+)
+@limiter.limit("50/minute")
+async def createReservation(request: Request, userData: ReservationCreate, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> ReservationResponse:
+    if current_user.role == "Cliente":
+        return await ReservationController.createReservationClient(db, userData, current_user=current_user)
+    else:
+        return ReservationResponse(success=False, message="No tienes permiso para estaacción")
