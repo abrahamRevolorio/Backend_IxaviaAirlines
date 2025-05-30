@@ -55,7 +55,7 @@ class RoleController:
 
             roles = result.scalars().all()
 
-            roleDict = {str(role.rolid): role.nombrerol for role in roles}
+            roleDict = {str(role.rolid) for role in roles}
 
             return RoleResponse(
                 success=True,

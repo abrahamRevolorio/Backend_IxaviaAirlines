@@ -50,6 +50,28 @@ class FlightResponse(BaseModel):
             }
         }
 
+class FlightResponseList(BaseModel):
+    success: bool
+    message: str
+    flights_info: Optional[list[Dict[str, str]]] = None
+    status_code: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "Consulta exitosa",
+                "flights_info": {
+                    "id": 1,
+                    "fecha": "2023-06-01",
+                    "hora_salida": "10:00:00",  
+                    "hora_llegada": "12:00:00",
+                    "destino_id": 1,
+                    "avion_id": 1
+                }
+            }
+        }
+
 class FlightUpdate(BaseModel):
     fecha: Optional[date] = None
     hora_salida: Optional[str] = None

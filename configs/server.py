@@ -27,7 +27,7 @@ from src.roles.modelRole import RoleModel, RoleResponse, UpdateRole, DeleteRole
 
 # Modelos y Controladores de Vuelos
 from src.flight.controllerFlight import FlightController
-from src.flight.modelFlight import FlightCreate, FlightResponse
+from src.flight.modelFlight import FlightCreate, FlightResponse, FlightResponseList
 
 # Esto se ejecuta cuando el servidor se prende o se apaga
 @asynccontextmanager
@@ -305,3 +305,45 @@ async def addFlight(request: Request, userData: FlightCreate, db: AsyncSession =
         return await FlightController.createFlight(db, userData)
     else:
         return FlightResponse(success=False, message="No tienes permiso para esta acción")
+
+@app.get(
+    "/flight/view",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los vuelos",
+    tags=["Flights"]
+)
+@limiter.limit("50/minute")
+async def viewFlights(request: Request, db: AsyncSession = Depends(getDb)) -> FlightResponseList:
+    return await FlightController.viewFlights(db)
+
+@app.get(
+    "/flight/view/peten",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los vuelos",
+    tags=["Flights"]
+)
+@limiter.limit("50/minute")
+async def viewFlightsToPeten(request: Request, db: AsyncSession = Depends(getDb)) -> FlightResponseList:
+    return await FlightController.viewFlightsToPeten(db)
+
+@app.get(
+    "/flight/view/guatemala",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todos los vuelos",
+    tags=["Flights"]
+)
+@limiter.limit("50/minute")
+async def viewFlightsToGuatemala(request: Request, db: AsyncSession = Depends(getDb)) -> FlightResponseList:
+    return await FlightController.viewFlightsToGuatemalaCity(db)

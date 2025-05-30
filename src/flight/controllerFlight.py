@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text, update
 from datetime import datetime
+import json
 
-from .modelFlight import FlightCreate, FlightResponse, FlightUpdate
+from .modelFlight import FlightCreate, FlightResponse, FlightUpdate, FlightResponseList
 from .schemas import Flight
 
 from src.auth.modelAuth import TokenData
@@ -64,4 +65,103 @@ class FlightController:
                 success=False,
                 message=f'Error al crear el vuelo',
                 status_code=400
+            )
+        
+    @staticmethod
+    async def viewFlights(db: AsyncSession) -> FlightResponseList:
+        try:
+
+            result = await db.execute(select(Flight).where(Flight.estado == 'activo'))
+
+            flights = result.scalars().all()
+
+            flightDict = [{
+                "id": str(flight.vueloid),
+                "fecha": str(flight.fecha),
+                "hora_salida": str(flight.horasalida),
+                "hora_llegada": str(flight.horallegada),
+                "destino_id": str(flight.destino_id),
+                "avion_id": str(flight.avion_id)
+            } for flight in flights]
+
+            return FlightResponseList(
+                success=True,
+                message='Consulta exitosa',
+                status_code=200,
+                flights_info=flightDict
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f'Error: {repr(e)}')
+            return FlightResponseList(
+                success=False,
+                message=f'Error interno del servidor',
+                status_code=500
+            )
+        
+    @staticmethod
+    async def viewFlightsToPeten(db: AsyncSession) -> FlightResponseList:
+        try:
+
+            result = await db.execute(select(Flight).where(Flight.estado == 'activo').where(Flight.destino_id == 2))
+
+            flights = result.scalars().all()
+
+            flightDict = [{
+                "id": str(flight.vueloid),
+                "fecha": str(flight.fecha),
+                "hora_salida": str(flight.horasalida),
+                "hora_llegada": str(flight.horallegada),
+                "destino_id": str(flight.destino_id),
+                "avion_id": str(flight.avion_id)
+            } for flight in flights]
+
+            return FlightResponseList(
+                success=True,
+                message='Consulta exitosa',
+                status_code=200,
+                flights_info=flightDict
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f'Error: {repr(e)}')
+            return FlightResponseList(
+                success=False,
+                message=f'Error interno del servidor',
+                status_code=500
+            )
+        
+    @staticmethod
+    async def viewFlightsToGuatemalaCity(db: AsyncSession) -> FlightResponseList:
+        try:
+
+            result = await db.execute(select(Flight).where(Flight.estado == 'activo').where(Flight.destino_id == 1))
+
+            flights = result.scalars().all()
+
+            flightDict = [{
+                "id": str(flight.vueloid),
+                "fecha": str(flight.fecha),
+                "hora_salida": str(flight.horasalida),
+                "hora_llegada": str(flight.horallegada),
+                "destino_id": str(flight.destino_id),
+                "avion_id": str(flight.avion_id)
+            } for flight in flights]
+
+            return FlightResponseList(
+                success=True,
+                message='Consulta exitosa',
+                status_code=200,
+                flights_info=flightDict
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f'Error: {repr(e)}')
+            return FlightResponseList(
+                success=False,
+                message=f'Error interno del servidor',
+                status_code=500
             )
