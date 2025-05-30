@@ -21,8 +21,13 @@ from src.auth.dependencies import getCurrentUser, oauth2Scheme
 from src.users.controllerUser import UserController
 from src.users.modelUser import ClientRegister, EmployerRegister, FindUser, DeleteUser, UpdateUser
 
+# Modelos y controladores de roles
 from src.roles.controllerRole import RoleController
 from src.roles.modelRole import RoleModel, RoleResponse, UpdateRole, DeleteRole
+
+# Modelos y Controladores de Vuelos
+from src.flight.controllerFlight import FlightController
+from src.flight.modelFlight import FlightCreate, FlightResponse
 
 # Esto se ejecuta cuando el servidor se prende o se apaga
 @asynccontextmanager
@@ -283,3 +288,20 @@ async def deleteRole(request: Request, userData: DeleteRole, db: AsyncSession = 
         return await RoleController.deleteRoles(db, userData)
     else:
         return RoleResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.post(
+    "/flight/add",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Agregar vuelo",
+    tags=["Flights"]
+)
+@limiter.limit("50/minute")
+async def addFlight(request: Request, userData: FlightCreate, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> FlightResponse:
+    if current_user.role == "Administrador":
+        return await FlightController.createFlight(db, userData)
+    else:
+        return FlightResponse(success=False, message="No tienes permiso para esta acción")
