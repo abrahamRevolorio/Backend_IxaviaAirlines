@@ -75,3 +75,44 @@ class ReservationController:
                 message=f'Error al crear el vuelo',
                 status_code=400
             )
+        
+    @staticmethod
+    async def getReservationClient(db: AsyncSession, current_user: TokenData) -> ReservationResponseList:
+        try:
+
+            findClient = await db.execute(select(Cliente).where(Cliente.usuario_id == current_user.userId))
+
+            client = findClient.scalars().first()
+
+            findReservationClientToken = await db.execute(select(Reservation).where(Reservation.cliente_id == client.clienteid))
+
+            reservationClientToken = findReservationClientToken.scalars().all()
+
+            if not reservationClientToken:
+                return ReservationResponseList(
+                    success=False,
+                    message=f'No tienes reservaciones activas',
+                    status_code=400
+                )
+            
+            reservationClientTokenDict = [{
+                "vuelo_id": str(reservation.vuelo_id),
+                "asiento_id": str(reservation.asiento_id),
+                "cliente_id": str(reservation.cliente_id)
+            } for reservation in reservationClientToken]
+
+            return ReservationResponseList(
+                success=True,
+                message="Consulta exitosa",
+                reservation_info=reservationClientTokenDict,
+                status_code=200
+            )
+
+        except Exception as e:
+            await db.rollback()
+            print(f'Error: {repr(e)}')
+            return ReservationResponseList(
+                success=False,
+                message=f'Error al obtener la reserva',
+                status_code=400
+            )

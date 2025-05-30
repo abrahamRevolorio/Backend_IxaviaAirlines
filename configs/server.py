@@ -401,3 +401,20 @@ async def createReservation(request: Request, userData: ReservationCreate, db: A
         return await ReservationController.createReservationClient(db, userData, current_user=current_user)
     else:
         return ReservationResponse(success=False, message="No tienes permiso para estaacción")
+    
+@app.get(
+    "/reservation/view/client",
+    status_code=status.HTTP_200_OK,
+    responses = {
+        status.HTTP_200_OK: {"description": "Consulta exitosa"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Error interno del servidor"}
+    },
+    summary="Obtiene todas las reservaciones",
+    tags=["Reservations"]
+)
+@limiter.limit("50/minute")
+async def viewReservation(request: Request, db: AsyncSession = Depends(getDb), current_user: TokenData = Depends(getCurrentUser)) -> ReservationResponseList:
+    if current_user.role == "Cliente":
+        return await ReservationController.getReservationClient(db, current_user=current_user)
+    else:
+        return ReservationResponseList(success=False, message="No tienes permiso para estaacción")
